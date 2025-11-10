@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vehicle Ease Pro</title>
+  <style>
+    body { background: #000; color: #0f0; font-family: 'Courier New', monospace; padding: 20px; margin: 0; }
+    h1 { text-align: center; animation: pulse 2s infinite; margin-bottom: 30px; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .gauge { background: #111; border: 3px solid #0f0; padding: 20px; margin: 15px; border-radius: 15px; text-align: center; }
+    .bar-container { background: #222; height: 25px; border-radius: 10px; margin: 10px 0; overflow: hidden; }
+    .bar { height: 100%; background: #0f0; transition: width 0.3s; border-radius: 10px; }
+    .big { font-size: 42px; font-weight: bold; margin: 10px 0; }
+    .status { text-align: center; margin: 20px; font-size: 18px; }
+    .connected { color: #0f0; }
+    .disconnected { color: #f00; }
+    .container { max-width: 500px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚗 VEHICLE EASE PRO</h1>
+    
+    <div class="status" id="status">Connecting...</div>
+    
+    <div class="gauge">
+      <div>ENGINE RPM</div>
+      <div id="rpm" class="big">0</div>
+      <div class="bar-container"><div class="bar" id="rpmBar" style="width: 0%"></div></div>
+      <div>0 - 8000 RPM</div>
+    </div>
+    
+    <div class="gauge">
+      <div>COOLANT TEMP</div>
+      <div id="coolant" class="big">0 °C</div>
+      <div class="bar-container"><div class="bar" id="coolantBar" style="width: 0%"></div></div>
+      <div>0° - 120°C</div>
+    </div>
+    
+    <div class="gauge">
+      <div>THROTTLE POSITION</div>
+      <div id="throttle" class="big">0 %</div>
+      <div class="bar-container"><div class="bar" id="throttleBar" style="width: 0%"></div></div>
+      <div>0 - 100%</div>
+    </div>
+    
+    <div class="gauge">
+      <div>VEHICLE SPEED</div>
+      <div id="speed" class="big">0 km/h</div>
+      <div class="bar-container"><div class="bar" id="speedBar" style="width: 0%"></div></div>
+      <div>0 - 300 km/h</div>
+    </div>
+  </div>
+
+  <script>
+    class VehicleDashboard {
+      constructor() {
+        this.ws = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+        this.connect();
+      }
+
+      connect() {
+        // Auto-detect current host
+        const host = window.location.hostname || 'localhost';
+        const wsUrl = `ws://${host}:8765`;
+        
+        console.log(`Connecting to: ${wsUrl}`);
+        this.ws = new WebSocket(wsUrl);
+        
+        this.ws.onopen = () => {
+          console.log("Connected to vehicle data!");
+          this.reconnectAttempts = 0;
+          this.updateStatus('Connected to Vehicle', 'connected');
+        };
+        
+        this.ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            this.updateDisplay(data);
+          } catch (e) {
+            console.error('Data error:', e);
+          }
+        };
+        
+        this.ws.onclose = () => {
+          console.log('Connection closed');
+          this.updateStatus('Disconnected - Retrying...', 'disconnected');
+          this.attemptReconnect();
+        };
+        
+        this.ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          this.updateStatus('Connection Error', 'disconnected');
+        };
+      }
+
+      attemptReconnect() {
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.reconnectAttempts++;
+          setTimeout(() => {
+            console.log(`Reconnect attempt ${this.reconnectAttempts}`);
+            this.connect();
+          }, 2000);
+        } else {
+          this.updateStatus('Failed to connect. Check if server is running.', 'disconnected');
+        }
+      }
+
+      updateStatus(message, className) {
+        const statusEl = document.getElementById('status');
+        statusEl.textContent = message;
+        statusEl.className = `status ${className}`;
+      }
+
+      updateDisplay(data) {
+        // RPM (0-8000)
+        document.getElementById('rpm').textContent = data.rpm.toLocaleString();
+        document.getElementById('rpmBar').style.width = Math.min(100, (data.rpm / 8000 * 100)) + '%';
+        
+        // Coolant Temp (0-120°C)
+        document.getElementById('coolant').textContent = data.coolant + ' °C';
+        document.getElementById('coolantBar').style.width = Math.min(100, (data.coolant / 120 * 100)) + '%';
+        
+        // Throttle Position (0-100%)
+        document.getElementById('throttle').textContent = data.throttle + ' %';
+        document.getElementById('throttleBar').style.width = Math.min(100, data.throttle) + '%';
+        
+        // Speed (0-300 km/h)
+        document.getElementById('speed').textContent = data.speed + ' km/h';
+        document.getElementById('speedBar').style.width = Math.min(100, (data.speed / 300 * 100)) + '%';
+        
+        // Visual feedback for high values
+        this.updateVisualFeedback(data);
+      }
+
+      updateVisualFeedback(data) {
+        const rpmBar = document.getElementById('rpmBar');
+        if (data.rpm > 6000) {
+          rpmBar.style.background = '#ff4444';
+        } else if (data.rpm > 4000) {
+          rpmBar.style.background = '#ffaa00';
+        } else {
+          rpmBar.style.background = '#00ff00';
+        }
+
+        const coolantBar = document.getElementById('coolantBar');
+        if (data.coolant > 100) {
+          coolantBar.style.background = '#ff4444';
+        } else if (data.coolant > 90) {
+          coolantBar.style.background = '#ffaa00';
+        } else {
+          coolantBar.style.background = '#00ff00';
+        }
+      }
+    }
+
+    // Initialize dashboard when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      new VehicleDashboard();
+    });
+  </script>
+</body>
+</html>
