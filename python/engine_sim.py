@@ -8,39 +8,69 @@ from pygame.locals import *
 class EngineSimulator:
     def __init__(self):
         pygame.init()
-        self.width, self.height = 800, 600
+        self.width, self.height = 900, 600  # Increased width for gear display
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("Vehicle Ease Pro - Engine Simulator")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 36)
+        self.small_font = pygame.font.Font(None, 24)
         
         # Engine state
         self.rpm = 0
         self.coolant_temp = 0
         self.throttle = 0
         self.speed = 0
+        self.gear = "N"  # N, 1, 2, 3, 4, 5, 6, R
         
         # Piston positions (V6 engine)
         self.pistons = [0, 120, 240, 60, 180, 300]  # degrees offset
         
+        # Gear ratios (typical manual transmission)
+        self.gear_ratios = {
+            "R": -3.5, "1": 3.8, "2": 2.2, "3": 1.5, 
+            "4": 1.1, "5": 0.8, "6": 0.6
+        }
+        
+    def calculate_gear(self):
+        """Calculate current gear based on RPM and speed"""
+        if self.speed == 0 or self.rpm < 500:
+            return "N"
+        
+        # Simple gear calculation based on RPM/speed ratio
+        ratio = self.rpm / max(1, self.speed)
+        
+        # Find closest matching gear
+        closest_gear = "N"
+        min_diff = float('inf')
+        
+        for gear, gear_ratio in self.gear_ratios.items():
+            if gear == "R":  # Skip reverse for forward motion
+                continue
+            diff = abs(ratio - gear_ratio * 100)  # Scale factor
+            if diff < min_diff:
+                min_diff = diff
+                closest_gear = gear
+        
+        return closest_gear
+
     def fetch_data(self):
         """Get data from WebSocket server"""
         try:
-            # For now, we'll simulate data. Replace with actual WebSocket connection
-            # This would connect to your real_server.py or fake_server.py
-            response = requests.get('http://localhost:8766/data')  # We'll create this endpoint
+            response = requests.get('http://localhost:8766/data')
             if response.status_code == 200:
                 data = response.json()
                 self.rpm = data.get('rpm', 0)
                 self.coolant_temp = data.get('coolant', 0)
                 self.throttle = data.get('throttle', 0)
                 self.speed = data.get('speed', 0)
+                self.gear = self.calculate_gear()
         except:
-            # Fallback to simulated data
+            # Fallback to simulated data with gear calculation
             self.rpm = min(8000, self.rpm + 100 if self.throttle > 50 else max(800, self.rpm - 100))
             self.coolant_temp = 80 + (self.rpm / 8000 * 40)
             self.throttle = (self.throttle + 10) % 100
             self.speed = int(self.rpm * 0.02)
+            self.gear = self.calculate_gear()
 
     def draw_engine_block(self):
         """Draw the engine block"""
@@ -108,6 +138,35 @@ class EngineSimulator:
                 color = (255, 100, 0) if flame_intensity > 0.7 else (255, 200, 0)
                 pygame.draw.polygon(self.screen, color, points)
 
+    def draw_digital_speedometer(self):
+        """Draw digital speedometer with gear indicator"""
+        # Speed display background
+        pygame.draw.rect(self.screen, (20, 20, 20), (650, 100, 200, 150), border_radius=15)
+        pygame.draw.rect(self.screen, (0, 100, 0), (650, 100, 200, 150), 3, border_radius=15)
+        
+        # Speed value
+        speed_text = self.font.render(f"{self.speed}", True, (0, 255, 0))
+        speed_rect = speed_text.get_rect(center=(750, 150))
+        self.screen.blit(speed_text, speed_rect)
+        
+        # Speed unit
+        unit_text = self.small_font.render("km/h", True, (100, 255, 100))
+        unit_rect = unit_text.get_rect(center=(750, 180))
+        self.screen.blit(unit_text, unit_rect)
+        
+        # Gear indicator
+        gear_bg_color = (0, 100, 0) if self.gear != "N" else (100, 100, 0)
+        pygame.draw.rect(self.screen, gear_bg_color, (700, 200, 100, 40), border_radius=10)
+        
+        gear_text = self.font.render(self.gear, True, (255, 255, 255))
+        gear_rect = gear_text.get_rect(center=(750, 220))
+        self.screen.blit(gear_text, gear_rect)
+        
+        # Gear label
+        gear_label = self.small_font.render("GEAR", True, (150, 150, 150))
+        gear_label_rect = gear_label.get_rect(center=(750, 240))
+        self.screen.blit(gear_label, gear_label_rect)
+
     def draw_gauges(self):
         """Draw digital gauges"""
         # RPM
@@ -122,8 +181,8 @@ class EngineSimulator:
         throttle_text = self.font.render(f"Throttle: {self.throttle}%", True, (0, 255, 0))
         self.screen.blit(throttle_text, (50, 530))
         
-        # Speed
-        speed_text = self.font.render(f"Speed: {self.speed} km/h", True, (0, 255, 0))
+        # Speed (smaller - main display is in speedometer)
+        speed_text = self.small_font.render(f"Speed: {self.speed} km/h", True, (100, 255, 100))
         self.screen.blit(speed_text, (400, 530))
 
     def run(self):
@@ -146,6 +205,7 @@ class EngineSimulator:
             self.draw_engine_block()
             self.draw_pistons()
             self.draw_exhaust()
+            self.draw_digital_speedometer()
             self.draw_gauges()
             
             pygame.display.flip()
