@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vehicle Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: #000; color: #0f0; font-family: monospace; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+        .chart-container { background: #111; padding: 20px; border-radius: 10px; border: 1px solid #0f0; }
+        .alert-panel { grid-column: 1 / -1; background: #111; padding: 15px; border-radius: 10px; }
+        .alert { padding: 10px; margin: 5px; border-radius: 5px; }
+        .critical { background: #330000; border: 1px solid #ff0000; }
+        .warning { background: #332200; border: 1px solid #ffaa00; }
+        .info { background: #002233; border: 1px solid #00aaff; }
+    </style>
+</head>
+<body>
+    <h1>🚗 Vehicle Analytics Dashboard</h1>
+    
+    <div class="dashboard">
+        <div class="chart-container">
+            <h3>Speed & RPM Over Time</h3>
+            <canvas id="rpmSpeedChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <h3>Temperature & Throttle</h3>
+            <canvas id="tempThrottleChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <h3>Gear Distribution</h3>
+            <canvas id="gearChart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+            <h3>Vehicle Health</h3>
+            <div id="healthScore" style="font-size: 48px; text-align: center;">100</div>
+            <div style="text-align: center;">Health Score</div>
+        </div>
+        
+        <div class="alert-panel">
+            <h3>Live Alerts</h3>
+            <div id="alertsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // Charts initialization
+        const rpmSpeedCtx = document.getElementById('rpmSpeedChart').getContext('2d');
+        const rpmSpeedChart = new Chart(rpmSpeedCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'RPM',
+                    borderColor: '#00ff00',
+                    data: []
+                }, {
+                    label: 'Speed',
+                    borderColor: '#0088ff',
+                    data: []
+                }]
+            }
+        });
+
+        // Real-time data fetching
+        async function updateAnalytics() {
+            try {
+                const response = await fetch('http://localhost:8766/api/current');
+                const data = await response.json();
+                
+                // Update charts
+                updateCharts(data);
+                
+                // Update health score
+                document.getElementById('healthScore').textContent = 
+                    await getHealthScore();
+                
+                // Update alerts
+                updateAlerts();
+                
+            } catch (error) {
+                console.error('Analytics error:', error);
+            }
+        }
+        
+        setInterval(updateAnalytics, 1000);
+    </script>
+</body>
+</html>
