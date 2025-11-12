@@ -5,91 +5,43 @@ import time
 import webbrowser
 from threading import Thread
 
-def start_server(script_name):
-    """Start a Python script as subprocess"""
-    try:
-        if script_name == "fake_server.py":
-            print("🚗 Starting FAKE OBD-II Server (no hardware needed)")
-        else:
-            print("🚗 Starting REAL OBD-II Server (requires OBD dongle)")
-        
-        subprocess.run([sys.executable, script_name])
-    except Exception as e:
-        print(f"Error starting {script_name}: {e}")
+def start_services():
+    services = [
+        ("🌉 Data Bridge", "python/data_bridge.py"),
+        ("📊 API Server", "python/api_server.py"), 
+        ("📈 Data Logger", "python/data_logger.py"),
+        ("🔧 Diagnostics", "python/diagnostics.py")
+    ]
+    
+    for service_name, script_path in services:
+        Thread(target=run_service, args=(service_name, script_path), daemon=True).start()
+        time.sleep(1)
 
-def start_engine_sim():
-    """Start the Pygame engine simulator"""
-    try:
-        print("🎮 Starting Engine Simulator...")
-        subprocess.run([sys.executable, "python/engine_sim.py"])
-    except Exception as e:
-        print(f"Error starting engine simulator: {e}")
-
-def start_data_bridge():
-    """Start the data bridge server"""
-    try:
-        print("🌉 Starting Data Bridge Server...")
-        subprocess.run([sys.executable, "python/data_bridge.py"])
-    except Exception as e:
-        print(f"Error starting data bridge: {e}")
-
-def open_dashboard():
-    """Open the web dashboard in browser"""
-    time.sleep(3)  # Give servers time to start
-    try:
-        webbrowser.open('http://localhost:8766/static/index.html')
-        print("📱 Dashboard should open in your browser automatically!")
-        print("📱 If not, manually open: dashboard/index.html")
-    except:
-        print("📱 Please manually open: dashboard/index.html")
+def show_system_status():
+    print("\n" + "="*60)
+    print("🚗 VEHICLE EASE PRO - ENTERPRISE EDITION")
+    print("="*60)
+    print("📊 Available Features:")
+    print("  ✅ Real-time OBD-II Monitoring")
+    print("  ✅ Pygame 3D Engine Visualization") 
+    print("  ✅ Data Logging & Analytics")
+    print("  ✅ RESTful API with Historical Data")
+    print("  ✅ Smart Diagnostics & Alerts")
+    print("  ✅ Progressive Web App (PWA)")
+    print("  ✅ Mobile-First Dashboard")
+    print("  ✅ Performance Analytics")
+    print("\n🌐 Access Points:")
+    print("  📱 Main Dashboard: http://localhost:8766/dashboard")
+    print("  📊 Analytics: http://localhost:8766/analytics")
+    print("  🔌 API Docs: http://localhost:8766/api/current")
+    print("="*60)
 
 if __name__ == "__main__":
-    print("=" * 50)
-    print("🚗 VEHICLE EASE PRO - MVP LAUNCHER")
-    print("=" * 50)
-    
-    # Create necessary folders
-    os.makedirs("python", exist_ok=True)
-    os.makedirs("dashboard", exist_ok=True)
-    
-    print("\nChoose mode:")
-    print("1. FAKE DATA (no OBD dongle needed) - Recommended for testing")
-    print("2. REAL OBD (requires OBD-II Bluetooth dongle)")
-    
-    choice = input("\nEnter choice (1 or 2): ").strip()
-    
-    if choice == "1":
-        # Start fake server
-        server_thread = Thread(target=start_server, args=("fake_server.py",))
-        server_thread.daemon = True
-        server_thread.start()
-    elif choice == "2":
-        # Start real server  
-        server_thread = Thread(target=start_server, args=("real_server.py",))
-        server_thread.daemon = True
-        server_thread.start()
-    else:
-        print("Invalid choice. Starting with fake data.")
-        server_thread = Thread(target=start_server, args=("fake_server.py",))
-        server_thread.daemon = True
-        server_thread.start()
-    
-    # Start data bridge
-    bridge_thread = Thread(target=start_data_bridge)
-    bridge_thread.daemon = True
-    bridge_thread.start()
+    show_system_status()
+    start_services()
     
     # Open dashboard
-    dashboard_thread = Thread(target=open_dashboard)
-    dashboard_thread.daemon = True
-    dashboard_thread.start()
+    time.sleep(3)
+    webbrowser.open('http://localhost:8766/dashboard')
     
-    print("\n🎯 All systems starting...")
-    print("💡 Press Ctrl+C to stop all servers")
-    
-    try:
-        # Keep main thread alive
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("\n🛑 Shutting down Vehicle Ease Pro...")
+    input("\n🎯 Press Enter to stop all services...")
