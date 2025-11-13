@@ -30,6 +30,44 @@ class EngineSimulator:
             "R": -3.5, "1": 3.8, "2": 2.2, "3": 1.5, 
             "4": 1.1, "5": 0.8, "6": 0.6
         }
+
+  def draw_fuel_display(self):
+    """Draw fuel efficiency information"""
+    # Fuel display background
+    pygame.draw.rect(self.screen, (20, 20, 20), (650, 270, 200, 120), border_radius=15)
+    pygame.draw.rect(self.screen, (0, 100, 0), (650, 270, 200, 120), 3, border_radius=15)
+    
+    # Fuel efficiency
+    efficiency = max(0, self.speed / max(1, self.rpm/500))  # Simplified calculation
+    efficiency_text = self.font.render(f"{efficiency:.1f} km/L", True, (0, 255, 0))
+    efficiency_rect = efficiency_text.get_rect(center=(750, 300))
+    self.screen.blit(efficiency_text, efficiency_rect)
+    
+    # Fuel rate
+    fuel_rate = 0.8 + (self.rpm / 1000 * 0.5) + (self.throttle / 100 * 1.2)
+    rate_text = self.small_font.render(f"Fuel: {fuel_rate:.1f} L/h", True, (100, 255, 100))
+    rate_rect = rate_text.get_rect(center=(750, 330))
+    self.screen.blit(rate_text, rate_rect)
+    
+    # Efficiency status
+    if efficiency > 15:
+        status = "EXCELLENT"
+        color = (0, 255, 0)
+    elif efficiency > 10:
+        status = "GOOD"
+        color = (255, 200, 0)
+    elif efficiency > 5:
+        status = "POOR"
+        color = (255, 100, 0)
+    else:
+        status = "VERY POOR"
+        color = (255, 0, 0)
+    
+    status_text = self.small_font.render(status, True, color)
+    status_rect = status_text.get_rect(center=(750, 360))
+    self.screen.blit(status_text, status_rect) 
+
+    self.draw_fuel_display()  # Add this line     
         
     def calculate_gear(self):
         """Calculate current gear based on RPM and speed"""

@@ -11,6 +11,7 @@
     .bar-container { background: #222; height: 25px; border-radius: 10px; margin: 10px 0; overflow: hidden; }
     .bar { height: 100%; background: #0f0; transition: width 0.3s; border-radius: 10px; }
     .big { font-size: 42px; font-weight: bold; margin: 10px 0; }
+    .medium { font-size: 28px; font-weight: bold; margin: 5px 0; }
     .status { text-align: center; margin: 20px; font-size: 18px; }
     .connected { color: #0f0; }
     .disconnected { color: #f00; }
@@ -31,6 +32,34 @@
       background: #00ff00;
       color: #000;
       border-color: #00ff00;
+    }
+    .fuel-efficiency { color: #00ff00; }
+    .fuel-warning { color: #ffaa00; }
+    .fuel-critical { color: #ff4444; }
+    .reset-btn {
+      background: #333;
+      color: #0f0;
+      border: 1px solid #0f0;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .reset-btn:hover {
+      background: #0f0;
+      color: #000;
+    }
+    .fuel-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .fuel-stat {
+      background: #222;
+      padding: 8px;
+      border-radius: 5px;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -66,6 +95,34 @@
       <div id="speed" class="big">0 km/h</div>
       <div class="bar-container"><div class="bar" id="speedBar" style="width: 0%"></div></div>
       <div>0 - 300 km/h</div>
+    </div>
+    
+    <!-- NEW: Fuel Efficiency Gauge -->
+    <div class="gauge">
+      <div>FUEL EFFICIENCY</div>
+      <div id="fuelEfficiency" class="big fuel-efficiency">0.0 km/L</div>
+      <div class="bar-container">
+        <div class="bar" id="fuelBar" style="width: 0%; background: #00ff00"></div>
+      </div>
+      <div class="fuel-stats">
+        <div class="fuel-stat">
+          <div>Fuel Rate</div>
+          <div id="fuelRate" class="medium">0.0 L/h</div>
+        </div>
+        <div class="fuel-stat">
+          <div>Trip Fuel</div>
+          <div id="tripFuel" class="medium">0.0 L</div>
+        </div>
+        <div class="fuel-stat">
+          <div>Trip Cost</div>
+          <div id="tripCost" class="medium">$0.00</div>
+        </div>
+        <div class="fuel-stat">
+          <div>Efficiency</div>
+          <div id="efficiencyStatus" class="medium">Good</div>
+        </div>
+      </div>
+      <button class="reset-btn" onclick="resetTrip()">Reset Trip</button>
     </div>
         
     <div class="gauge">
@@ -177,6 +234,62 @@
         });
       }
 
+      updateFuelDisplay(data) {
+        // Fuel efficiency (km/L)
+        const efficiency = data.fuel_efficiency || 0;
+        document.getElementById('fuelEfficiency').textContent = efficiency.toFixed(1) + ' km/L';
+        
+        // Fuel rate (L/h)
+        document.getElementById('fuelRate').textContent = (data.fuel_rate || 0).toFixed(1) + ' L/h';
+        
+        // Trip fuel (L)
+        document.getElementById('tripFuel').textContent = (data.trip_fuel || 0).toFixed(2) + ' L';
+        
+        // Trip cost
+        document.getElementById('tripCost').textContent = '$' + (data.trip_cost || 0).toFixed(2);
+        
+        // Efficiency status and color coding
+        const efficiencyElement = document.getElementById('fuelEfficiency');
+        const statusElement = document.getElementById('efficiencyStatus');
+        const fuelBar = document.getElementById('fuelBar');
+        
+        // Efficiency bar (0-30 km/L scale)
+        const efficiencyPercent = Math.min(100, (efficiency / 30) * 100);
+        fuelBar.style.width = efficiencyPercent + '%';
+        
+        if (efficiency > 15) {
+          // Excellent efficiency
+          efficiencyElement.className = 'big fuel-efficiency';
+          statusElement.textContent = 'Excellent';
+          statusElement.className = 'medium fuel-efficiency';
+          fuelBar.style.background = '#00ff00';
+        } else if (efficiency > 10) {
+          // Good efficiency
+          efficiencyElement.className = 'big fuel-warning';
+          statusElement.textContent = 'Good';
+          statusElement.className = 'medium fuel-warning';
+          fuelBar.style.background = '#ffaa00';
+        } else if (efficiency > 5) {
+          // Poor efficiency
+          efficiencyElement.className = 'big fuel-warning';
+          statusElement.textContent = 'Poor';
+          statusElement.className = 'medium fuel-warning';
+          fuelBar.style.background = '#ffaa00';
+        } else {
+          // Very poor efficiency
+          efficiencyElement.className = 'big fuel-critical';
+          statusElement.textContent = 'Very Poor';
+          statusElement.className = 'medium fuel-critical';
+          fuelBar.style.background = '#ff4444';
+        }
+        
+        // Special case for idle/stationary
+        if (data.speed === 0 && efficiency === 0) {
+          statusElement.textContent = 'Idle';
+          fuelBar.style.width = '10%';
+        }
+      }
+
       updateDisplay(data) {
         // RPM (0-8000)
         document.getElementById('rpm').textContent = data.rpm.toLocaleString();
@@ -196,6 +309,9 @@
         
         // Gear display
         this.updateGearDisplay(data);
+        
+        // Fuel efficiency display
+        this.updateFuelDisplay(data);
         
         // Visual feedback for high values
         this.updateVisualFeedback(data);
@@ -219,6 +335,20 @@
         } else {
           coolantBar.style.background = '#00ff00';
         }
+      }
+    }
+
+    // Reset trip data
+    async function resetTrip() {
+      try {
+        const response = await fetch('http://localhost:8766/trip/reset', {
+          method: 'POST'
+        });
+        if (response.ok) {
+          console.log('Trip data reset');
+        }
+      } catch (error) {
+        console.error('Failed to reset trip:', error);
       }
     }
 
